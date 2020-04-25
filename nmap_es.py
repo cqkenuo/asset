@@ -1,7 +1,5 @@
-# ========================================================================================
-# The code below has been adapted and tailored for this project.
-# The original version can be found at: https://github.com/ChrisRimondi/VulntoES
-# ========================================================================================
+#!/usr/bin/python
+# -*- coding: UTF-8 -*-
 from elasticsearch import Elasticsearch
 import sys
 import re
@@ -12,24 +10,22 @@ import xml.etree.ElementTree as xml
 
 
 class NmapES:
-	"This class will parse an Nmap XML file and send data to Elasticsearch"
 
-	def __init__(self, input_file,es_ip,es_port,index_name):
+	def __init__(self, input_file,es_ip,es_port,index_name,es_user,es_pass):
 		self.input_file = input_file
 		self.tree = self.__importXML()
 		self.root = self.tree.getroot()
-		self.es = Elasticsearch([{'host':es_ip,'port':es_port}])
+		self.es = Elasticsearch([{'host':es_ip,'port':es_port}],http_auth=(es_user,es_pass))
 		self.index_name = index_name
 
 	def displayInputFileName(self):
 		print self.input_file
 
 	def __importXML(self):
-		#Parse XML directly from the file path
 		return xml.parse(self.input_file)
 
 	def toES(self):
-		"Returns a list of dictionaries (only for open ports) for each host in the report"
+
 		for h in self.root.iter('host'):
 
 			dict_item = {}
@@ -88,12 +84,12 @@ def merge_two_dicts(x, y):
 
 
 def usage():
-	print "Usage: VulntoES.py [-i input_file | input_file=input_file] [-e elasticsearch_ip | es_ip=es_ip_address] [-p elasticsearch_port | es_port=es_server_port] [-I index_name] [-r report_type | --report_type=type] [-s name=value] [-h | --help]"
+	print "Usage: nmap_es.py [-i input_file ] [-e elasticsearch_ip ] [-p elasticsearch_port ] [-I index_name] [-r report_type | --report_type=type] [-s name=value]  [-u username=value] [-P password=value] [-h | --help]"
 
 
 def main():
-	letters = 'i:I:e:p:r:s:h' #input_file, index_name es_ip_address, report_type, create_sql, create_xml, help
-	keywords = ['input-file=', 'index_name=', 'es_ip=','es_port=','report_type=', 'static=', 'help' ]
+	letters = 'i:I:e:p:r:s:u:P:h' #input_file, index_name es_ip_address, report_type, create_sql, create_xml, help
+	keywords = ['input-file=', 'index_name=', 'es_ip=','es_port=','report_type=', 'static=', 'es_user=', 'es_pass=', 'help' ]
 	try:
 		opts, extraparams = getopt.getopt(sys.argv[1:], letters, keywords)
 	except getopt.GetoptError, err:
@@ -106,6 +102,8 @@ def main():
 	es_port = 9200
 	report_type = ''
 	index_name = ''
+        es_user = ''
+        es_pass = ''
         static_fields = dict()
 
 	for o,p in opts:
@@ -122,6 +120,10 @@ def main():
 		elif o in ['-s', '--static']:
 			name, value = p.split("=", 1)
 			static_fields[name] = value
+                elif o in ['-u', '--es_user=']:
+			es_user=p
+		elif o in ['-P', '--es_pass=']:
+			es_pass=p
 		elif o in ['-h', '--help']:
 			usage()
 			sys.exit()
@@ -137,22 +139,13 @@ def main():
 		sys.exit()
 
 	if report_type.lower() == 'nmap':
-		print "Sending Nmap data to Elasticsearch"
-		np = NmapES(in_file,es_ip,es_port,index_name)
+    
+		np = NmapES(in_file,es_ip,es_port,index_name,es_user,es_pass)
 		np.toES()
-	# elif report_type.lower() == 'nessus':
-	# 	print "Sending Nessus data to Elasticsearch"
-	# 	np = NessusES(in_file,es_ip,es_port,index_name, static_fields)
-	# 	np.toES()
-	# elif report_type.lower() == 'nikto':
-	# 	print "Sending Nikto data to Elasticsearch"
-	# 	np = NiktoES(in_file,es_ip,es_port,index_name)
-	# 	np.toES()
-	# elif report_type.lower() == 'openvas':
-	# 	np = OpenVasES(in_file,es_ip,es_port,index_name)
-	# 	np.toES()
+		print "数据导入完毕！"
+
 	else:
-		print "Error: Invalid report type specified. Available options: nmap" #nessus, nikto, nmap, openvas"
+		print "类型输入错误！类型为：nmap" 
 		sys.exit()
 
 if __name__ == "__main__":
